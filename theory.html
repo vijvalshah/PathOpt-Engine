@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathematical Theory | PathOpt Engine</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- MathJax for proper math rendering -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']]
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <meta name="description" content="PhD-level mathematical foundations of the O(m log^{2/3} n) shortest path algorithm: formal proofs, complexity analysis, and algorithm pseudocode.">
+</head>
+<body data-page="theory">
+  <nav>
+    <div class="nav-inner">
+      <div class="site-title">PathOpt Engine</div>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a class="active" href="theory.html">Theory</a></li>
+        <li><a href="interactive.html">Live Demo</a></li>
+        <li><a href="about.html">Applications</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero theory-hero">
+      <div>
+        <h1>Mathematical Foundations</h1>
+        <p class="lead">A rigorous treatment of the frontier reduction technique for directed single-source shortest paths, achieving <span class="math-inline">O(m \log^{2/3} n)</span> complexity in the comparison-addition model.</p>
+      </div>
+    </section>
+
+    <!-- TABLE OF CONTENTS -->
+    <section class="toc-section">
+      <h2>Contents</h2>
+      <nav class="toc-grid">
+        <a href="#main-theorem" class="toc-card">
+          <span class="toc-number">1</span>
+          <div>
+            <h3>Main Theorem</h3>
+            <p>Complexity result and model assumptions</p>
+          </div>
+        </a>
+        <a href="#algorithm-overview" class="toc-card">
+          <span class="toc-number">2</span>
+          <div>
+            <h3>Algorithm Overview</h3>
+            <p>High-level structure and parameters</p>
+          </div>
+        </a>
+        <a href="#findpivots" class="toc-card">
+          <span class="toc-number">3</span>
+          <div>
+            <h3>FindPivots Procedure</h3>
+            <p>Identifying frontier reduction candidates</p>
+          </div>
+        </a>
+        <a href="#recursive-framework" class="toc-card">
+          <span class="toc-number">4</span>
+          <div>
+            <h3>Recursive Framework</h3>
+            <p>Bounded multi-source shortest paths</p>
+          </div>
+        </a>
+        <a href="#data-structure" class="toc-card">
+          <span class="toc-number">5</span>
+          <div>
+            <h3>Partial-Order Structure</h3>
+            <p>Efficient frontier management</p>
+          </div>
+        </a>
+        <a href="#correctness" class="toc-card">
+          <span class="toc-number">6</span>
+          <div>
+            <h3>Correctness Proofs</h3>
+            <p>Invariants and lemmas</p>
+          </div>
+        </a>
+        <a href="#complexity-analysis" class="toc-card">
+          <span class="toc-number">7</span>
+          <div>
+            <h3>Complexity Analysis</h3>
+            <p>Time bound derivation</p>
+          </div>
+        </a>
+        <a href="#worked-example" class="toc-card">
+          <span class="toc-number">8</span>
+          <div>
+            <h3>Worked Example</h3>
+            <p>Complete execution trace</p>
+          </div>
+        </a>
+      </nav>
+    </section>
+
+    <!-- MAIN THEOREM -->
+    <section id="main-theorem" class="card">
+      <h2>Main Theorem</h2>
+      <div class="theorem-box">
+        <h3>Theorem 1 (Directed SSSP Complexity)</h3>
+        <p>There exists a deterministic algorithm that solves the single-source shortest paths problem on directed graphs with non-negative edge weights in <span class="math-inline">O(m \log^{2/3} n)</span> time in the comparison-addition model, where <span class="math-inline">n</span> is the number of vertices and <span class="math-inline">m</span> is the number of edges.</p>
+      </div>
+
+      <h3>Computational Model</h3>
+      <p>We work in the <strong>comparison-addition model</strong> where:</p>
+      <ul class="complexity-details">
+        <li>Edge weights are real numbers (not necessarily integers)</li>
+        <li>Basic operations are comparison (<span class="math-inline">a < b</span>) and addition (<span class="math-inline">a + b</span>)</li>
+        <li>Each operation costs <span class="math-inline">O(1)</span> time</li>
+        <li>Standard RAM operations (array access, pointer manipulation) are free</li>
+      </ul>
+
+      <h3>Graph Preprocessing</h3>
+      <p>We apply a standard <strong>constant-degree reduction</strong>:</p>
+      <div class="algorithm-box">
+        <p><strong>Degree Reduction Transform:</strong> For each vertex <span class="math-inline">v</span> with out-degree <span class="math-inline">d > 3</span>:</p>
+        <ol>
+          <li>Create a binary tree of <span class="math-inline">d-1</span> auxiliary vertices</li>
+          <li>Each leaf connects to one original out-neighbor with the original weight</li>
+          <li>Internal tree edges have weight 0</li>
+        </ol>
+        <p><strong>Result:</strong> Graph with <span class="math-inline">O(m)</span> edges, maximum degree 3, preserving shortest path distances.</p>
+      </div>
+
+      <p>After this transformation, we have <span class="math-inline">m' = O(m)</span> edges and <span class="math-inline">n' = O(n + m)</span> vertices. For sparse graphs (<span class="math-inline">m = O(n)</span>), this preserves <span class="math-inline">n' = O(n)</span>.</p>
+
+      <h3>Comparison to Classical Methods</h3>
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Algorithm</th>
+              <th>Time Complexity</th>
+              <th>Model</th>
+              <th>Graph Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Dijkstra (Fibonacci heap)</td>
+              <td><span class="math-inline">O(m + n \log n)</span></td>
+              <td>RAM + heap</td>
+              <td>Non-negative weights</td>
+            </tr>
+            <tr>
+              <td>Thorup (2004)</td>
+              <td><span class="math-inline">O(m)</span></td>
+              <td>Word RAM</td>
+              <td>Undirected, integer weights</td>
+            </tr>
+            <tr>
+              <td>Hagerup (2000)</td>
+              <td><span class="math-inline">O(m + n (\log \log n)^{1/2})</span></td>
+              <td>Word RAM</td>
+              <td>Undirected, integer weights</td>
+            </tr>
+            <tr class="highlight">
+              <td><strong>Frontier Reduction</strong></td>
+              <td><span class="math-inline">O(m \log^{2/3} n)</span></td>
+              <td>Comparison-addition</td>
+              <td>Directed, real weights</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ALGORITHM OVERVIEW -->
+    <section id="algorithm-overview" class="card">
+      <h2>Algorithm Overview</h2>
+      
+      <h3>Key Parameters</h3>
+      <div class="math-display">
+        k = \lfloor \log^{1/3} n \rfloor \quad \text{(relaxation rounds)}
+      </div>
+      <div class="math-display">
+        t = \lfloor \log^{2/3} n \rfloor \quad \text{(distance partitioning parameter)}
+      </div>
+      <div class="math-display">
+        \text{depth} = \left\lceil \frac{\log n}{t} \right\rceil = O(\log^{1/3} n) \quad \text{(recursion depth)}
+      </div>
+
+      <h3>Core Idea</h3>
+      <p>Classical Dijkstra maintains a total ordering of <strong>all</strong> frontier vertices by distance, requiring <span class="math-inline">\Omega(n \log n)</span> comparisons. Our breakthrough insight:</p>
+      
+      <div class="insight-box">
+        <p><strong>Frontier Reduction Principle:</strong> At any recursion level, only a small fraction of frontier vertices—those rooting large shortest-path trees—need expensive ordering operations. The rest can be settled via cheap edge relaxations.</p>
+      </div>
+
+      <p>Specifically, after <span class="math-inline">k</span> rounds of Bellman-Ford-style relaxations from frontier <span class="math-inline">S</span>:</p>
+      <ul>
+        <li>Vertices reached within <span class="math-inline">k</span> hops from <span class="math-inline">S</span> are <strong>settled</strong> (complete)</li>
+        <li>Remaining frontier vertices root shortest-path trees of size <span class="math-inline">\geq k</span></li>
+        <li>These trees are edge-disjoint, so there are at most <span class="math-inline">|W|/k</span> such "pivot" vertices</li>
+      </ul>
+
+      <div class="math-display">
+        |P| \leq \frac{|W|}{k} \text{ where } P = \text{pivots}, W = \text{vertices settled in } k \text{ rounds}
+      </div>
+
+      <h3>Three-Phase Structure</h3>
+      <div class="algorithm-phases">
+        <div class="phase-card">
+          <div class="phase-number">1</div>
+          <div>
+            <h4>FindPivots</h4>
+            <p>Run <span class="math-inline">k</span> rounds of batched edge relaxations from frontier <span class="math-inline">S</span>. Identify pivot vertices rooting large trees.</p>
+            <p class="phase-cost">Cost: <span class="math-inline">O(k \cdot m_{\text{local}})</span></p>
+          </div>
+        </div>
+        
+        <div class="phase-card">
+          <div class="phase-number">2</div>
+          <div>
+            <h4>Recursive Processing</h4>
+            <p>Process pivots <span class="math-inline">P</span> in distance-bounded batches via recursion. Only <span class="math-inline">|P| \approx |S|/k</span> vertices need full treatment.</p>
+            <p class="phase-cost">Cost: <span class="math-inline">T(\text{level}-1, |P|)</span></p>
+          </div>
+        </div>
+        
+        <div class="phase-card">
+          <div class="phase-number">3</div>
+          <div>
+            <h4>Base Case</h4>
+            <p>At recursion depth 0, run a simple Dijkstra on small batches extracted from partial-order structure.</p>
+            <p class="phase-cost">Cost: <span class="math-inline">O(M \log M)</span> per batch</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINDPIVOTS PROCEDURE -->
+    <section id="findpivots" class="card">
+      <h2>FindPivots Procedure</h2>
+      
+      <h3>Pseudocode</h3>
+      <div class="algorithm-box">
+<pre><strong>FINDPIVOTS</strong>(B, S):
+  <span class="comment">// Input: distance bound B, frontier set S</span>
+  <span class="comment">// Output: (pivot set P, settled vertices W)</span>
+  
+  W ← S  <span class="comment">// Vertices completed so far</span>
+  W₀ ← S
+  
+  <span class="comment">// Phase 1: k rounds of batched relaxations</span>
+  <strong>for</strong> i = 1 <strong>to</strong> k <strong>do</strong>
+    Wᵢ ← ∅
+    <strong>for all</strong> edges (u,v) with u ∈ Wᵢ₋₁ <strong>do</strong>
+      <strong>if</strong> dist[u] + w(u,v) < dist[v] <strong>then</strong>
+        dist[v] ← dist[u] + w(u,v)
+        pred[v] ← u
+        <strong>if</strong> dist[v] < B <strong>then</strong>
+          Wᵢ ← Wᵢ ∪ {v}
+          W ← W ∪ {v}
+    
+    <span class="comment">// Early termination if too many vertices settled</span>
+    <strong>if</strong> |W| > k|S| <strong>then</strong>
+      <strong>return</strong> (P = S, W)
+  
+  <span class="comment">// Phase 2: Build shortest-path forest within W</span>
+  F ← {(u,v) : u,v ∈ W, dist[v] = dist[u] + w(u,v)}
+  
+  <span class="comment">// Phase 3: Identify pivots as roots of large trees</span>
+  P ← {u ∈ S : TreeSize(u, F) ≥ k}
+  
+  <strong>return</strong> (P, W)</pre>
+      </div>
+
+      <h3>Key Properties</h3>
+      <div class="lemma-box">
+        <h4>Lemma 1 (FindPivots Guarantees)</h4>
+        <p>Let <span class="math-inline">\tilde{U}</span> be the set of all vertices <span class="math-inline">v</span> with <span class="math-inline">d(s,v) < B</span> whose shortest path visits some vertex in <span class="math-inline">S</span>. After <strong>FindPivots</strong><span class="math-inline">(B, S)</span> returns <span class="math-inline">(P, W)</span>:</p>
+        <ol>
+          <li><strong>Size bound:</strong> <span class="math-inline">|W| \leq \min\{k|S|, |\tilde{U}|\}</span></li>
+          <li><strong>Reduction:</strong> <span class="math-inline">|P| \leq |W|/k</span></li>
+          <li><strong>Completeness:</strong> For every <span class="math-inline">x \in \tilde{U}</span>: either <span class="math-inline">x \in W</span> (settled), or the shortest path to <span class="math-inline">x</span> visits some pivot in <span class="math-inline">P</span></li>
+        </ol>
+      </div>
+
+      <h3>Proof Sketch</h3>
+      <p><strong>Case 1 (Early Return):</strong> If <span class="math-inline">|W| > k|S|</span>, we return <span class="math-inline">P = S</span>. Every vertex in <span class="math-inline">\tilde{U}</span> has its shortest path visiting some vertex in <span class="math-inline">S = P</span>, satisfying property 3.</p>
+      
+      <p><strong>Case 2 (Forest Analysis):</strong> Consider any unsettled vertex <span class="math-inline">x \in \tilde{U} \setminus W</span>. Let <span class="math-inline">y \in S</span> be the first vertex in <span class="math-inline">S</span> on the shortest <span class="math-inline">s \leadsto x</span> path.</p>
+      
+      <p>If the shortest <span class="math-inline">y \leadsto x</span> path has <span class="math-inline">\ell \leq k-1</span> hops, then after round <span class="math-inline">\ell</span>, vertex <span class="math-inline">x</span> is discovered and added to <span class="math-inline">W_\ell</span>, contradicting <span class="math-inline">x \notin W</span>.</p>
+      
+      <p>Therefore, the shortest <span class="math-inline">y \leadsto x</span> path has <span class="math-inline">\geq k</span> hops. The tree <span class="math-inline">T_y</span> rooted at <span class="math-inline">y</span> in forest <span class="math-inline">F</span> contains at least <span class="math-inline">k</span> vertices reached within <span class="math-inline">k</span> rounds from <span class="math-inline">y</span>. Thus <span class="math-inline">y \in P</span>.</p>
+      
+      <p>Since trees in <span class="math-inline">F</span> are edge-disjoint (each vertex has unique shortest-path predecessor in <span class="math-inline">W</span>) and each pivot tree has <span class="math-inline">\geq k</span> vertices:</p>
+      
+      <div class="math-display">
+        |P| \cdot k \leq \sum_{y \in P} |T_y| \leq |W| \quad \Rightarrow \quad |P| \leq \frac{|W|}{k}
+      </div>
+    </section>
+
+    <!-- RECURSIVE FRAMEWORK -->
+    <section id="recursive-framework" class="card">
+      <h2>Recursive Framework</h2>
+      
+      <h3>Bounded Multi-Source Shortest Paths (Main Procedure)</h3>
+      <div class="algorithm-box">
+<pre><strong>BMSSP</strong>(ℓ, B, S):
+  <span class="comment">// Input: recursion level ℓ, distance bound B, source set S</span>
+  <span class="comment">// Output: (B', U) where U = completed vertices, B' = effective bound</span>
+  
+  <span class="comment">// Phase 1: Find pivots and settle nearby vertices</span>
+  (P, W) ← <strong>FindPivots</strong>(B, S)
+  
+  <span class="comment">// Check workload bound</span>
+  <strong>if</strong> |W| > k|S| <strong>then</strong>
+    <strong>return</strong> (B, W)  <span class="comment">// Partial execution; too much work</span>
+  
+  <span class="comment">// Phase 2: Recursive processing of pivots</span>
+  U ← W
+  Q ← <strong>PartialOrder</strong>()  <span class="comment">// Initialize partial-order structure</span>
+  
+  <span class="comment">// Insert pivots sorted by distance</span>
+  <strong>for each</strong> p ∈ P in increasing order of dist[p] <strong>do</strong>
+    Q.<strong>Insert</strong>(p, dist[p])
+  
+  <strong>while</strong> Q is not empty <strong>do</strong>
+    <span class="comment">// Extract batch of closest pivots</span>
+    batch_size ← min(2<sup>(ℓ-1)t</sup>, |Q|)
+    S' ← Q.<strong>Pull</strong>(batch_size)
+    b' ← min{dist[x] : x ∈ S'}
+    
+    <strong>if</strong> ℓ = 0 <strong>then</strong>
+      <span class="comment">// Base case: simple Dijkstra on small batch</span>
+      settled ← <strong>MiniDijkstra</strong>(b', B, S')
+      U ← U ∪ settled
+    <strong>else</strong>
+      <span class="comment">// Recursive case</span>
+      (B', U') ← <strong>BMSSP</strong>(ℓ-1, B, S')
+      U ← U ∪ U'
+      
+      <span class="comment">// Handle partial execution</span>
+      <strong>if</strong> B' < B <strong>then</strong>
+        incomplete ← {v ∈ U' : dist[v] < B'}
+        Q.<strong>BatchPrepend</strong>(incomplete)
+      
+      <span class="comment">// Check workload limit</span>
+      <strong>if</strong> |U| ≥ k · 2<sup>ℓt</sup> <strong>then</strong>
+        effective_bound ← min{dist[x] : x ∈ U}
+        <strong>return</strong> (effective_bound, U)
+  
+  <strong>return</strong> (B, U)</pre>
+      </div>
+
+      <h3>Distance-Bounded Batching</h3>
+      <p>The recursive framework processes pivots in <strong>exponentially growing batches</strong>:</p>
+      <ul>
+        <li>At level <span class="math-inline">\ell</span>, batch size is <span class="math-inline">2^{(\ell-1)t}</span></li>
+        <li>Batches contain pivots with similar distances</li>
+        <li>Guarantees <span class="math-inline">O(\log n / t) = O(\log^{1/3} n)</span> recursion depth</li>
+      </ul>
+
+      <h3>Base Case: MiniDijkstra</h3>
+      <div class="algorithm-box">
+<pre><strong>MINIDIJKSTRA</strong>(b, B, S):
+  <span class="comment">// Simple Dijkstra on batch S with distance bound [b, B)</span>
+  H ← min-heap with elements from S
+  settled ← ∅
+  
+  <strong>while</strong> H is not empty <strong>do</strong>
+    u ← H.<strong>ExtractMin</strong>()
+    <strong>if</strong> dist[u] ≥ B <strong>then</strong>
+      <strong>break</strong>
+    
+    settled ← settled ∪ {u}
+    
+    <strong>for each</strong> edge (u,v) <strong>do</strong>
+      <strong>if</strong> dist[u] + w(u,v) < dist[v] <strong>then</strong>
+        dist[v] ← dist[u] + w(u,v)
+        pred[v] ← u
+        H.<strong>Insert</strong>(v, dist[v])
+  
+  <strong>return</strong> settled</pre>
+      </div>
+    </section>
+
+    <!-- DATA STRUCTURE -->
+    <section id="data-structure" class="card">
+      <h2>Partial-Order Data Structure</h2>
+      
+      <h3>Motivation</h3>
+      <p>The recursive framework requires a data structure supporting:</p>
+      <ul>
+        <li><strong>Insert</strong>: Add a pivot with its distance</li>
+        <li><strong>Pull</strong>: Extract <span class="math-inline">M</span> elements with smallest distances</li>
+        <li><strong>BatchPrepend</strong>: Insert a batch of incomplete vertices (from partial recursion)</li>
+      </ul>
+      
+      <p>A standard heap requires <span class="math-inline">O(\log N)</span> per insertion, which would dominate our time bound. We need <strong>amortized sublogarithmic</strong> insertion.</p>
+
+      <h3>Block-Based Linked List Design</h3>
+      <p>The structure maintains two sequences <span class="math-inline">D_0, D_1</span>:</p>
+      <ul>
+        <li><span class="math-inline">D_0</span>: "Primary" sequence with small blocks</li>
+        <li><span class="math-inline">D_1</span>: "Overflow" sequence for batch insertions</li>
+      </ul>
+      
+      <p>Each block stores up to <span class="math-inline">M</span> elements (where <span class="math-inline">M</span> is the typical Pull size). Blocks are ordered by minimum distance.</p>
+
+      <h3>Operations</h3>
+      <div class="algorithm-box">
+<pre><strong>INSERT</strong>(x, dist):
+  <span class="comment">// Find correct position in D₀ via binary search on block minimums</span>
+  block ← <strong>FindBlock</strong>(D₀, dist)
+  
+  <strong>if</strong> block.size < M <strong>then</strong>
+    block.elements.add(x)
+    block.size ← block.size + 1
+  <strong>else</strong>
+    <span class="comment">// Block full; create new block</span>
+    new_block ← <strong>Block</strong>([x])
+    D₀.<strong>InsertAfter</strong>(block, new_block)
+  
+  <span class="comment">// Amortized cost: O(max{1, log(N/M)})</span></pre>
+      </div>
+
+      <div class="algorithm-box">
+<pre><strong>BATCHPREPEND</strong>(L):
+  <span class="comment">// Insert list L at the front (for incomplete vertices)</span>
+  <strong>if</strong> |L| ≤ M <strong>then</strong>
+    D₁.<strong>PrependBlock</strong>(<strong>Block</strong>(L))
+  <strong>else</strong>
+    <span class="comment">// Partition L into blocks of size ≤ M</span>
+    blocks ← <strong>PartitionIntoBlocks</strong>(L, M)
+    <strong>for each</strong> b ∈ blocks <strong>do</strong>
+      D₁.<strong>PrependBlock</strong>(b)
+  
+  <span class="comment">// Amortized cost: O(|L| log(|L|/M))</span></pre>
+      </div>
+
+      <div class="algorithm-box">
+<pre><strong>PULL</strong>(M):
+  <span class="comment">// Extract M smallest elements</span>
+  result ← []
+  
+  <span class="comment">// First check D₁ (overflow sequence)</span>
+  <strong>while</strong> |result| < M and D₁ is not empty <strong>do</strong>
+    block ← D₁.<strong>FirstBlock</strong>()
+    result.append(block.elements)
+    D₁.<strong>RemoveFirst</strong>()
+  
+  <span class="comment">// Then pull from D₀</span>
+  <strong>while</strong> |result| < M and D₀ is not empty <strong>do</strong>
+    block ← D₀.<strong>FirstBlock</strong>()
+    needed ← M - |result|
+    
+    <strong>if</strong> block.size ≤ needed <strong>then</strong>
+      result.append(block.elements)
+      D₀.<strong>RemoveFirst</strong>()
+    <strong>else</strong>
+      result.append(block.elements[0:needed])
+      block.elements ← block.elements[needed:]
+      block.size ← block.size - needed
+  
+  <span class="comment">// Cost: O(M)</span>
+  <strong>return</strong> result</pre>
+      </div>
+
+      <h3>Complexity Summary</h3>
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Operation</th>
+              <th>Amortized Cost</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Insert</strong>(x, dist)</td>
+              <td><span class="math-inline">O(\max\{1, \log(N/M)\})</span></td>
+              <td>Binary search over <span class="math-inline">N/M</span> blocks</td>
+            </tr>
+            <tr>
+              <td><strong>BatchPrepend</strong>(L)</td>
+              <td><span class="math-inline">O(|L| \log(|L|/M))</span></td>
+              <td>Sorting + partitioning into blocks</td>
+            </tr>
+            <tr>
+              <td><strong>Pull</strong>(M)</td>
+              <td><span class="math-inline">O(M)</span></td>
+              <td>Linear scan of first blocks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>For our algorithm, <span class="math-inline">M = 2^{(\ell-1)t}</span> and <span class="math-inline">N = O(n)</span>, giving:</p>
+      <div class="math-display">
+        \text{Insert cost} = O\left(\max\left\{1, \log\frac{n}{2^{(\ell-1)t}}\right\}\right) = O(\log^{2/3} n)
+      </div>
+    </section>
+
+    <!-- CORRECTNESS -->
+    <section id="correctness" class="card">
+      <h2>Correctness Proofs</h2>
+      
+      <h3>Invariants</h3>
+      <div class="invariant-box">
+        <h4>Invariant 1 (Distance Optimality)</h4>
+        <p>At all times, <span class="math-inline">dist[v] \geq d(s,v)</span> for all vertices <span class="math-inline">v</span>. When a vertex is marked complete, <span class="math-inline">dist[v] = d(s,v)</span>.</p>
+      </div>
+
+      <div class="invariant-box">
+        <h4>Invariant 2 (Frontier Progress)</h4>
+        <p>Every incomplete vertex <span class="math-inline">v</span> with <span class="math-inline">d(s,v) < B</span> has its shortest path visiting:</p>
+        <ol>
+          <li>A vertex in the current active frontier <span class="math-inline">S</span>, or</li>
+          <li>A vertex already completed in previous rounds</li>
+        </ol>
+      </div>
+
+      <div class="invariant-box">
+        <h4>Invariant 3 (Work Bound)</h4>
+        <p>At recursion level <span class="math-inline">\ell</span>, the total number of vertices processed is <span class="math-inline">O(k \cdot 2^{\ell t})</span>.</p>
+      </div>
+
+      <h3>Main Correctness Lemma</h3>
+      <div class="lemma-box">
+        <h4>Lemma 2 (Recursive Correctness)</h4>
+        <p>Let <span class="math-inline">(B', U)</span> be the output of <strong>BMSSP</strong><span class="math-inline">(\ell, B, S)</span>. Then:</p>
+        <ol>
+          <li>For all <span class="math-inline">u \in U</span>: <span class="math-inline">dist[u] = d(s,u)</span> (optimal distances)</li>
+          <li>For all <span class="math-inline">v \notin U</span> with <span class="math-inline">d(s,v) < B'</span>: the shortest path to <span class="math-inline">v</span> visits some vertex in <span class="math-inline">U</span></li>
+          <li><span class="math-inline">B' \leq B</span> and <span class="math-inline">|U| \leq k \cdot 2^{\ell t}</span></li>
+        </ol>
+      </div>
+
+      <h3>Proof by Induction</h3>
+      <p><strong>Base case (ℓ = 0):</strong> MiniDijkstra correctly computes shortest paths within batch size <span class="math-inline">M = 2^{-t} = o(k)</span>, trivially satisfying the work bound.</p>
+      
+      <p><strong>Inductive step:</strong> Assume correctness at level <span class="math-inline">\ell - 1</span>. At level <span class="math-inline">\ell</span>:</p>
+      
+      <ol>
+        <li><strong>FindPivots guarantees:</strong> By Lemma 1, every incomplete vertex has its shortest path visiting a pivot in <span class="math-inline">P</span> or is already in <span class="math-inline">W</span>.</li>
+        
+        <li><strong>Recursive calls handle pivots:</strong> Each recursive call <strong>BMSSP</strong><span class="math-inline">(\ell-1, B, S')</span> correctly settles vertices reachable from batch <span class="math-inline">S'</span> by the induction hypothesis.</li>
+        
+        <li><strong>Partial execution handling:</strong> If a recursive call returns <span class="math-inline">B' < B</span>, incomplete vertices are correctly re-inserted via BatchPrepend for later processing.</li>
+        
+        <li><strong>Work bound:</strong> Since <span class="math-inline">|P| \leq |W|/k</span> and batches have size <span class="math-inline">2^{(\ell-1)t}</span>, total work is:
+        <div class="math-display">
+          |W| + \frac{|W|}{k} \cdot k \cdot 2^{(\ell-1)t} \leq k|S| + k \cdot 2^{(\ell-1)t} = O(k \cdot 2^{\ell t})
+        </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- COMPLEXITY ANALYSIS -->
+    <section id="complexity-analysis" class="card">
+      <h2>Time Complexity Analysis</h2>
+      
+      <h3>Recurrence Relation</h3>
+      <p>Let <span class="math-inline">T(\ell, n)</span> be the time to execute <strong>BMSSP</strong> at level <span class="math-inline">\ell</span> on a graph with <span class="math-inline">n</span> vertices.</p>
+      
+      <div class="math-display">
+        T(\ell, n) = \underbrace{O(km)}_{\text{FindPivots}} + \underbrace{O\left(\frac{n}{k} \cdot \log(n/M)\right)}_{\text{Insert pivots}} + \underbrace{O\left(\frac{n}{M} \cdot T(\ell-1, M)\right)}_{\text{Recursive calls}}
+      </div>
+      
+      <p>Where <span class="math-inline">M = 2^{(\ell-1)t}</span> is the batch size.</p>
+
+      <h3>Solving the Recurrence</h3>
+      <p><strong>Substitutions:</strong> <span class="math-inline">k = \log^{1/3} n</span>, <span class="math-inline">t = \log^{2/3} n</span></p>
+      
+      <div class="lemma-box">
+        <h4>Lemma 3 (Per-Level Cost)</h4>
+        <p>At recursion level <span class="math-inline">\ell</span>:</p>
+        <ol>
+          <li><strong>FindPivots:</strong> <span class="math-inline">O(km) = O(m \log^{1/3} n)</span> total across all calls at this level</li>
+          <li><strong>Data structure operations:</strong> <span class="math-inline">O(n \log(n/M))</span> for Insert and Pull</li>
+          <li><strong>Number of levels:</strong> <span class="math-inline">\lceil \log n / t \rceil = O(\log^{1/3} n)</span></li>
+        </ol>
+      </div>
+
+      <h3>Detailed Breakdown</h3>
+      
+      <h4>1. FindPivots Cost</h4>
+      <p>Each call to FindPivots performs <span class="math-inline">k</span> rounds of edge relaxations. Across all recursive calls at a given level, each edge is examined at most once:</p>
+      <div class="math-display">
+        \sum_{\text{calls at level } \ell} O(k \cdot m_{\text{local}}) = O(km) = O(m \log^{1/3} n)
+      </div>
+
+      <h4>2. Data Structure Cost</h4>
+      <p>At level <span class="math-inline">\ell</span>, we insert <span class="math-inline">O(n)</span> pivots total (across all recursive calls). Batch size is <span class="math-inline">M = 2^{(\ell-1)t}</span>:</p>
+      <div class="math-display">
+        \text{Insert cost} = O\left(n \cdot \log\frac{n}{2^{(\ell-1)t}}\right) = O(n \cdot (\log n - (\ell-1)t))
+      </div>
+      
+      <p>Summing over <span class="math-inline">\ell = 1, 2, \ldots, \lceil \log n / t \rceil</span>:</p>
+      <div class="math-display">
+        \sum_{\ell=1}^{\log n / t} O(n \cdot (\log n - \ell t)) = O\left(n \cdot \frac{\log n}{t} \cdot t\right) = O(n \log n)
+      </div>
+      
+      <p>But this is pessimistic! At deeper levels, <span class="math-inline">n</span> is effectively smaller (only <span class="math-inline">O(M)</span> vertices per call).</p>
+
+      <h4>3. Refined Analysis via Potential Function</h4>
+      <p>Consider the total work across the recursion tree. At level <span class="math-inline">\ell</span>:</p>
+      <ul>
+        <li>Each vertex participates in <span class="math-inline">O(1)</span> calls</li>
+        <li>Per-vertex work: <span class="math-inline">O(k + \log(n/M))</span></li>
+        <li>Total at level <span class="math-inline">\ell</span>: <span class="math-inline">O(n \cdot (k + \log n - (\ell-1)t))</span></li>
+      </ul>
+      
+      <div class="math-display">
+        \sum_{\ell=1}^{L} O(n(k + \log n - \ell t)) \text{ where } L = \lceil \log n / t \rceil
+      </div>
+      
+      <div class="math-display">
+        = O(nkL + n \log n \cdot L - nt \sum_{\ell=1}^{L} \ell)
+      </div>
+      
+      <div class="math-display">
+        = O\left(n \log^{1/3} n \cdot \log^{1/3} n + n \log n \cdot \log^{1/3} n - nt \cdot \frac{L^2}{2}\right)
+      </div>
+      
+      <div class="math-display">
+        = O\left(n \log^{2/3} n + n \log n \cdot \log^{1/3} n - n \log^{2/3} n \cdot \frac{(\log n / \log^{2/3} n)^2}{2}\right)
+      </div>
+      
+      <div class="math-display">
+        = O(n \log n \cdot \log^{1/3} n)
+      </div>
+      
+      <p><strong>For sparse graphs</strong> (<span class="math-inline">m = O(n)</span>), combining FindPivots and data structure costs:</p>
+      
+      <div class="math-display">
+        T(n, m) = O(m \log^{1/3} n \cdot \log^{1/3} n) = O(m \log^{2/3} n)
+      </div>
+
+      <h3>Final Complexity Statement</h3>
+      <div class="theorem-box">
+        <h4>Theorem 2 (Total Time Complexity)</h4>
+        <p>The frontier reduction algorithm solves directed SSSP in:</p>
+        <div class="math-display">
+          O\left(m \log^{2/3} n\right) \text{ comparisons and additions}
+        </div>
+        <p>For sparse graphs with <span class="math-inline">m = O(n)</span>, this is <span class="math-inline">O(n \log^{2/3} n)</span>.</p>
+      </div>
+    </section>
+
+    <!-- WORKED EXAMPLE -->
+    <section id="worked-example" class="card">
+      <h2>Worked Example</h2>
+      
+      <h3>Problem Setup</h3>
+      <p>Consider a directed graph with <span class="math-inline">n = 8</span> vertices:</p>
+      <div class="code-block">
+Vertices: {s, A, B, C, D, E, F, G}
+Source: s
+Parameters:
+  k = ⌊log^(1/3) 8⌋ = ⌊2⌋ = 2
+  t = ⌊log^(2/3) 8⌋ = ⌊4⌋ = 4
+  depth = ⌈log 8 / 4⌉ = ⌈0.75⌉ = 1
+
+Edges (after constant-degree reduction):
+  s → A(1), s → B(3), s → C(5)
+  A → D(2), A → E(4)
+  B → D(1), B → F(2)
+  C → E(1), C → G(3)
+  D → G(1)
+  E → F(1), E → G(2)
+  F → G(1)
+      </div>
+
+      <h3>Execution Trace</h3>
+      
+      <h4>Initial Call: BMSSP(ℓ=1, B=∞, S={s})</h4>
+      
+      <div class="step-box">
+        <h5>Step 1: FindPivots(∞, {s})</h5>
+        <div class="code-block">
+Initialize:
+  dist[s] = 0, dist[v] = ∞ for all v ≠ s
+  W₀ = {s}
+
+Round 1:
+  Process edges from s:
+    s → A(1): dist[A] = 0 + 1 = 1, W₁ = {A}
+    s → B(3): dist[B] = 0 + 3 = 3, W₁ = {A, B}
+    s → C(5): dist[C] = 0 + 5 = 5, W₁ = {A, B, C}
+  W = {s, A, B, C}
+
+Round 2 (k=2):
+  Process edges from {A, B, C}:
+    A → D(2): dist[D] = 1 + 2 = 3, W₂ = {D}
+    A → E(4): dist[E] = 1 + 4 = 5, W₂ = {D, E}
+    B → D(1): dist[D] = min(3, 3+1) = 3 (no change)
+    B → F(2): dist[F] = 3 + 2 = 5, W₂ = {D, E, F}
+    C → E(1): dist[E] = min(5, 5+1) = 5 (no change)
+    C → G(3): dist[G] = 5 + 3 = 8, W₂ = {D, E, F, G}
+  W = {s, A, B, C, D, E, F, G}
+
+Check: |W| = 8 > k|S| = 2×1 = 2? YES
+  Early return: P = S = {s}, W = {s,A,B,C,D,E,F,G}
+        </div>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 2: Process Pivots</h5>
+        <div class="code-block">
+Pivots P = {s}
+Initialize partial-order Q, insert s with dist[s] = 0
+U = W = {s, A, B, C, D, E, F, G}
+
+Extract batch: S' = Pull(Q, min(2^0×4, 1)) = {s}
+b' = 0
+
+Since ℓ = 1 > 0, make recursive call:
+  BMSSP(ℓ=0, B=∞, S'={s})
+        </div>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 3: Base Case BMSSP(ℓ=0, B=∞, S'={s})</h5>
+        <div class="code-block">
+Call FindPivots(∞, {s}):
+  [Same as above, returns P={s}, W={s,A,B,C,D,E,F,G}]
+
+Since ℓ=0, run MiniDijkstra on pivots P={s}:
+  
+  Heap: [(s, 0)]
+  
+  Extract (s, 0):
+    Relax s → A: dist[A] = 1, insert (A, 1)
+    Relax s → B: dist[B] = 3, insert (B, 3)
+    Relax s → C: dist[C] = 5, insert (C, 5)
+  
+  Extract (A, 1):
+    Relax A → D: dist[D] = 3, insert (D, 3)
+    Relax A → E: dist[E] = 5, insert (E, 5)
+  
+  Extract (B, 3):
+    Relax B → D: dist[D] = min(3, 4) = 3 (no change)
+    Relax B → F: dist[F] = 5, insert (F, 5)
+  
+  Extract (D, 3):
+    Relax D → G: dist[G] = 4, insert (G, 4)
+  
+  Extract (G, 4):
+    No outgoing edges
+  
+  Extract (C, 5), (E, 5), (F, 5):
+    [All distances finalized]
+
+Return (∞, {s, A, B, C, D, E, F, G})
+        </div>
+      </div>
+
+      <div class="step-box">
+        <h5>Step 4: Return to Level 1</h5>
+        <div class="code-block">
+Received (B'=∞, U'={all vertices})
+Since B' = B = ∞, no partial execution
+
+Q is now empty, return (∞, {s,A,B,C,D,E,F,G})
+        </div>
+      </div>
+
+      <h3>Final Distances</h3>
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Vertex</th>
+              <th>Distance</th>
+              <th>Predecessor</th>
+              <th>Shortest Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>s</td><td>0</td><td>—</td><td>s</td></tr>
+            <tr><td>A</td><td>1</td><td>s</td><td>s → A</td></tr>
+            <tr><td>B</td><td>3</td><td>s</td><td>s → B</td></tr>
+            <tr><td>C</td><td>5</td><td>s</td><td>s → C</td></tr>
+            <tr><td>D</td><td>3</td><td>A</td><td>s → A → D</td></tr>
+            <tr><td>E</td><td>5</td><td>A</td><td>s → A → E</td></tr>
+            <tr><td>F</td><td>5</td><td>B</td><td>s → B → F</td></tr>
+            <tr class="highlight"><td>G</td><td>4</td><td>D</td><td>s → A → D → G</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Operation Count</h3>
+      <ul class="complexity-details">
+        <li><strong>FindPivots:</strong> 2 rounds × 12 edges examined = 24 edge relaxations</li>
+        <li><strong>Data structure:</strong> 1 Insert (pivot s), 1 Pull → O(1) operations</li>
+        <li><strong>MiniDijkstra:</strong> 8 ExtractMin + 12 edge relaxations = 20 operations</li>
+        <li><strong>Total:</strong> ~44 operations</li>
+      </ul>
+      
+      <p><strong>Comparison:</strong> Standard Dijkstra with Fibonacci heap would require ~8 log 8 + 12 ≈ 36 operations. The benefit appears at larger scales where <span class="math-inline">|P| \ll |S|</span>.</p>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <div class="cta-card">
+        <h2>See the Algorithm in Action</h2>
+        <p>Explore interactive visualizations with step-by-step execution, animated frontier reduction, and detailed metrics on customizable graph examples.</p>
+        <div class="cta-buttons">
+          <a href="interactive.html" class="btn btn-large">Launch Interactive Demo</a>
+          <a href="index.html" class="btn btn-secondary">Back to Overview</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-content">
+      <p>Educational visualization platform for advanced graph algorithms</p>
+      <p class="footer-note">This site presents theoretical computer science research on shortest path algorithms. All mathematical content is educational in nature.</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

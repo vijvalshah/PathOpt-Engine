@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+      <!-- STEP-THROUGH EXAMPLES -->
+      <section id="running-examples" class="card">
+        <h2>🔬 Step-through Examples</h2>
+        <p>Explore animated examples in the <a href="interactive.html">Interactive Lab</a>. They show k-round relaxations, pivot selection, and recursion on toy graphs. These are illustrative for understanding; performance claims should be taken from the paper.</p>
+      </section>
+  
+  if |W| > k|S| then
+    return (B, W)  <span style="color:#9fb3d1">// Too much work; partial execution</span>
+  
+  <span style="color:#6bffbf">// Phase 2: Recursion on pivots</span>
+  U ← W
+  Q ← priority queue with pivots P, sorted by dist[]
+  
+  while Q not empty do
+    <span style="color:#9fb3d1">// Extract small batch of closest pivots</span>
+    S' ← Pull(Q, min(2<sup>(ℓ-1)t</sup>, |Q|))
+    b' ← min dist[x] for x in S'
+    
+    if ℓ = 0 then
+      <span style="color:#9fb3d1">// Base case: run mini-Dijkstra</span>
+      MiniDijkstra(b', B, S')
+      U ← U ∪ {newly completed vertices}
+    else
+      <span style="color:#9fb3d1">// Recursive case</span>
+      (B', U') ← BMSSP(ℓ-1, B, S')
+      U ← U ∪ U'
+      
+      if B' < B then
+        <span style="color:#9fb3d1">// Partial execution; re-insert incomplete vertices</span>
+        BatchPrepend(Q, {v in U' : dist[v] < B'})
+      
+      if |U| ≥ k · 2<sup>ℓt</sup> then
+        return (min dist[x] for x in U, U)  <span style="color:#9fb3d1">// Workload limit</span>
+  
+  return (B, U)
+        </div>
+
+  <h3>FindPivots Procedure</h3>
+    <p>This is the heart of the approach. It identifies which vertices in frontier S root large shortest-path trees.</p>
+        
+        <div class="code-block">
+<strong>FINDPIVOTS</strong>(B, S):
+  W ← S  <span style="color:#9fb3d1">// Vertices completed so far</span>
+  W₀ ← S
+  
+  <span style="color:#6bffbf">// k rounds of batched relaxations (like Bellman-Ford)</span>
+  for i = 1 to k do
+    Wᵢ ← ∅
+    for all edges (u,v) with u ∈ Wᵢ₋₁ do
+      if dist[u] + w(u,v) < dist[v] then
+        dist[v] ← dist[u] + w(u,v)
+        pred[v] ← u
+        if dist[v] < B then
+          Wᵢ ← Wᵢ ∪ {v}
+          W ← W ∪ {v}
+    
+    if |W| > k|S| then
+      return (P=S, W)  <span style="color:#9fb3d1">// Early exit; too many reached</span>
+  
+  <span style="color:#6bffbf">// Build forest of shortest paths within W</span>
+  F ← {(u,v) : u,v ∈ W, dist[v] = dist[u] + w(u,v)}
+  
+  <span style="color:#6bffbf">// Pivots = roots of trees with ≥k vertices</span>
+  P ← {u ∈ S : TreeSize(u, F) ≥ k}
+  
+  return (P, W)
+        </div>
+
+  <h3>Visual Example (k=3) — illustrative</h3>
+        <p>Suppose frontier S = {s₁, s₂, s₃, s₄} and we run 3 rounds of relaxations:</p>
+        
+        <div class="code-block">
+Round 1: s₁→{v₁,v₂}, s₂→{v₃}, s₃→{v₄,v₅,v₆}, s₄→{v₇}
+Round 2: v₁→{v₈,v₉}, v₄→{v₁₀}, ...
+Round 3: v₈→{v₁₁}, ...
+
+Forest Analysis:
+  Tree(s₁): {s₁, v₁, v₂, v₈, v₉, v₁₁} → 6 vertices ≥ 3 ✓ PIVOT
+  Tree(s₂): {s₂, v₃} → 2 vertices < 3 ✗ not pivot
+  Tree(s₃): {s₃, v₄, v₅, v₆, v₁₀} → 5 vertices ≥ 3 ✓ PIVOT
+  Tree(s₄): {s₄, v₇} → 2 vertices < 3 ✗ not pivot
+
+Result: P = {s₁, s₃}, |P| = 2 ≪ |S| = 4
+        </div>
+
+        <p><strong>Key Insight:</strong> Only 2 out of 4 frontier vertices need expensive sorting/recursion. The rest were handled by cheap edge relaxations.</p>
+
+  <h3>Time Complexity (from the paper)</h3>
+  <p>With parameters <span class="math-inline">k=\lfloor \log^{1/3} n \rfloor</span> and <span class="math-inline">t=\lfloor \log^{2/3} n \rfloor</span>, the algorithm runs in <span class="math-inline">O(m\,\log^{2/3} n)</span> time in the comparison–addition model. This combines k-step relaxations (to find pivots), shallow recursion on a reduced frontier, and a partial-order data structure.</p>
+
+        <div class="theorem-box">
+          <h4>Theorem (Directed SSSP Complexity)</h4>
+          <p>There exists a deterministic algorithm for SSSP on directed graphs with non-negative weights that runs in <span class="math-inline">O(m \log^{2/3} n)</span> time in the comparison–addition model. For sparse graphs with <span class="math-inline">m=O(n)</span>, this is <span class="math-inline">O(n \log^{2/3} n)</span>.</p>
+        </div>
+      </section>
+
+      <!-- EXAMPLE WALKTHROUGH -->
+      <section id="example" class="card">
+        <h2>🎯 Example: Small Graph (n=8, k=2)</h2>
+        
+        <h3>Setup</h3>
+        <div class="code-block">
+Vertices: {s, A, B, C, D, E, F, G}
+Source: s
+k = ⌊log<sup>1/3</sup> 8⌋ = 2
+t = ⌊log<sup>2/3</sup> 8⌋ = 4
+depth = ⌈log 8 / 4⌉ = 1
+
+Edges (constant degree 3):
+  s → A(1), B(3), C(5)
+  A → D(2), E(4)
+  B → D(1), F(2)
+  C → E(1), G(3)
+  D → G(1)
+  E → F(1), G(2)
+  F → G(1)
+        </div>
+
+        <h3>Execution</h3>
+        <div class="code-block">
+<strong>Level 1: BMSSP(ℓ=1, B=∞, S={s})</strong>
+
+  FindPivots(∞, {s}):
+    Round 1: Relax edges from s
+      dist[A]=1, dist[B]=3, dist[C]=5
+      W₁ = {s, A, B, C}
+    
+    Round 2: Relax edges from {A,B,C}
+      A→D: dist[D]=3
+      A→E: dist[E]=5
+      B→D: dist[D]=3 (no change)
+      B→F: dist[F]=5
+      C→E: dist[E]=5 (no change)
+      W₂ = {s, A, B, C, D, E, F}
+    
+    Forest analysis:
+      Tree(s): {s, A, B, C, D, E, F} → 7 vertices ≥ 2 ✓
+    
+    Return: P = {s}, W = {s,A,B,C,D,E,F}
+  
+  Recursion on P={s}:
+    BMSSP(ℓ=0, B=∞, S'={s}):
+      Base case: MiniDijkstra
+      Settles remaining vertex G
+      dist[G] = min(D→G: 4, E→G: 7, F→G: 6) = 4
+
+<strong>Final distances:</strong>
+  s:0, A:1, B:3, C:5, D:3, E:5, F:5, G:4
+        </div>
+
+        <h3>Analysis</h3>
+        <p><strong>Operations:</strong></p>
+        <ul>
+          <li>FindPivots: 2 rounds × 8 edges = 16 relaxations</li>
+          <li>Recursion: Only 1 pivot (instead of 7 vertices to sort)</li>
+          <li>Base case: Mini-Dijkstra on remaining vertex</li>
+        </ul>
+        
+        <p><strong>Dijkstra comparison:</strong> Would need to maintain heap with up to 7 vertices → 7 log 7 ≈ 20 operations. BMSSP-based method used 16 + minimal recursion.</p>
+      </section>
+
+      <!-- CORRECTNESS -->
+      <section id="correctness" class="card">
+        <h2>✅ Correctness</h2>
+        
+        <h3>Invariants</h3>
+        <ol>
+          <li><strong>Optimality:</strong> When BMSSP completes vertex v, dist[v] equals the true shortest path distance d(s,v)</li>
+          <li><strong>Progress:</strong> Every incomplete vertex with d(v) < B has its shortest path visiting some complete vertex in the current frontier or in set W</li>
+          <li><strong>Termination:</strong> After depth levels, all vertices are complete</li>
+        </ol>
+
+        <h3>Key Lemma (FindPivots Guarantee)</h3>
+        <div class="theorem-box">
+          <p>Let Ũ = {all vertices v with d(v) < B whose shortest path visits some vertex in S}. After FindPivots(B, S):</p>
+          <ol>
+            <li>|W| = O(min{k|S|, |Ũ|})</li>
+            <li>|P| ≤ |W|/k</li>
+            <li>For every x ∈ Ũ: either x ∈ W (complete), or the shortest path to x visits some pivot in P</li>
+          </ol>
+        </div>
+
+        <h3>Proof Sketch</h3>
+        <p><strong>Case 1 (Early Return):</strong> If |W| > k|S|, we return P=S. Every incomplete vertex's shortest path visits some vertex in S=P (satisfies condition 3).</p>
+        
+        <p><strong>Case 2 (Forest Analysis):</strong> Consider any incomplete vertex x ∈ Ũ. Let y ∈ S be the first vertex in S on the shortest path to x. If the y→x shortest path has ≤k-1 hops, then after k rounds of relaxation, x becomes complete (x ∈ W). Otherwise, the tree rooted at y contains ≥k vertices, so y ∈ P.</p>
+        
+        <p>Since pivot trees are edge-disjoint and each has ≥k vertices: |P|·k ≤ |W|, giving |P| ≤ |W|/k.</p>
+      </section>
+
+      <!-- COMPLEXITY DETAILS -->
+      <section id="complexity" class="card">
+        <h2>⚙️ Time Complexity (clean statement)</h2>
+        <p>Let <span class="math-inline">k=\lfloor \log^{1/3} n \rfloor</span> and <span class="math-inline">t=\lfloor \log^{2/3} n \rfloor</span>. Using:</p>
+        <ul>
+          <li>k rounds of relaxations to identify pivots,</li>
+          <li>a partial-order data structure supporting Insert, BatchPrepend, and Pull, and</li>
+          <li>recursion over a reduced frontier for <span class="math-inline">O(\log^{1/3} n)</span> levels,</li>
+        </ul>
+        <p>the total number of comparisons and additions is <span class="math-inline">O(m\,\log^{2/3} n)</span> in sparse directed graphs (after standard constant-degree reduction). For full proofs and constants, see the paper.</p>
+      </section>
+
+      <!-- PRACTICAL NOTES -->
+      <section id="practical" class="card">
+        <h2>💡 Practical Notes</h2>
+        <h3>Small graphs vs. asymptotics</h3>
+        <p>On tiny graphs, Dijkstra’s simplicity and lower constants often win in practice. The BMSSP-based method is designed for asymptotic improvements on sparse directed graphs.</p>
+        <h3>When it helps</h3>
+        <ul>
+          <li>Graphs are sparse (after constant-degree reduction) and directed.</li>
+          <li>You care about provable asymptotic savings in the comparison–addition model.</li>
+          <li>You can afford a more complex implementation (k-round relaxations, partial-order structure).</li>
+        </ul>
+        <h3>Assumptions</h3>
+        <ol>
+          <li>Standard constant-degree reduction preserves sparsity and shortest paths.</li>
+          <li>Non-negative edge weights.</li>
+          <li>Comparison–addition cost model.</li>
+        </ol>
+      </section>
+
+    </article>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 PathOpt Engine. Advanced shortest path algorithms for modern infrastructure.</p>
+  </footer>
+</body>
+</html>

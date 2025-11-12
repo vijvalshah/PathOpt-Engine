@@ -1,0 +1,308 @@
+% PathOpt Engine: Breaking the Sorting Barrier for Directed SSSP
+% Overleaf-ready Beamer deck with technical/mathematical content
+
+\documentclass[aspectratio=169,10pt]{beamer}
+
+% Theme and colors
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\usefonttheme{professionalfonts}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{physics}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=cyan}
+
+% Macros
+\newcommand{\Oh}{\mathcal{O}}
+\newcommand{\Tl}{\tilde{\Oh}}
+\newcommand{\poly}{\operatorname{poly}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\lp}{\left(}
+\newcommand{\rp}{\right)}
+\newcommand{\opt}{\mathrm{opt}}
+\newcommand{\dist}{\mathrm{dist}}
+\newcommand{\pred}{\mathrm{Pred}}
+\newcommand{\logc}{\log^{2/3} n}
+\newcommand{\logb}{\log^{1/3} n}
+
+% Title
+\title[PathOpt Engine]{Breaking the Sorting Barrier for Directed Single-Source Shortest Paths}
+\subtitle{Frontier Reduction: \(\Oh(m\,\log^{2/3} n)\) in the Comparison–Addition Model}
+\author{Based on Duan, Mao, Shu, Yin (arXiv:2504.17033)}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  \vspace{-0.6em}
+  \small Reference: \href{https://arxiv.org/abs/2504.17033}{Duan, Mao, Shu, Yin (2025): Breaking the Sorting Barrier for Directed SSSP}
+\end{frame}
+
+\begin{frame}{Goal and Model}
+  \begin{itemize}[leftmargin=1.2em]
+    \item Input: directed graph \(G=(V,E)\), \(|V|=n\), \(|E|=m\), nonnegative real weights.
+    \item Model: comparison–addition model (only addition and comparison on weights cost unit time).
+    \item Task: all \(\dist(s,\cdot)\) from source \(s\); no requirement to output the full order of vertices by distance.
+    \item Classical Dijkstra with Fibonacci heap: \(\Oh(m+n\log n)\).
+    \item This work (deterministic): \(\Oh\big(m\,\log^{2/3} n\big)\) time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Constant-Degree Reduction (Preliminaries)}
+  \begin{itemize}[leftmargin=1.2em]
+    \item Standard transformation makes in/out-degree bounded by a constant (e.g., \(\le 2\)), preserving shortest paths.
+    \item Size after reduction: \(n' = \Oh(m)\), \(m' = \Oh(m)\). For sparse graphs (\(m=\Oh(n)\)), this keeps \(n'=\Oh(n)\).
+    \item This assumption is used throughout the analysis (matches the paper's Section 2).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{High-Level Idea: Frontier Reduction}
+  \begin{block}{Motivation}
+    Dijkstra maintains a total order over a potentially large frontier \(S\Rightarrow\) an \(\Omega(n\log n)\) bottleneck.
+  \end{block}
+  \begin{block}{Key Insight}
+    Reduce the frontier size by identifying pivot vertices that root large shortest-path trees. Most vertices can be settled by cheap batched relaxations.
+  \end{block}
+  \begin{itemize}
+    \item Parameters: \(k=\lfloor \log^{1/3} n\rfloor\), \(t=\lfloor \log^{2/3} n\rfloor\), recursion depth \(\ell\approx \lceil(\log n)/t\rceil=\Oh(\log^{1/3} n)\).
+    \item Two core subroutines: FindPivots and BMSSP (bounded multi-source shortest paths).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Lecture Flow: How to Explain in Class}
+  \small
+  	extbf{Aim:} Teach the mechanism first, then the asymptotics.
+  \begin{enumerate}[leftmargin=1.2em]
+    \item Start with the model and why Dijkstra pays \(\Omega(n\log n)\) for ordering.
+    \item Show the frontier \(S\) idea and what FindPivots does (\(k\) BF-style rounds).
+    \item Prove pivot bound: \(|P|\le |W|/k\) via disjoint trees of size \(\ge k\).
+    \item Describe the recursion (BMSSP), partial-order structure and base case.
+    \item Derive total time formally (state Lemma 3.12 and sum over depths).
+    \item Compare to Dijkstra on sparse graphs; discuss constants and lack of fixed \(n_0\).
+  \end{enumerate}
+  \vspace{0.4em}
+  	extbf{Tip:} Use a tiny graph for mechanism; use equations/plots for performance.
+\end{frame}
+
+\begin{frame}{FindPivots: Statement (Lemma, paraphrased)}
+  Let \(\tilde U=\{v: \dist(v)<B\text{ and shortest } s\!\to\!v \text{ path visits some } u\in S\}\). After \textsc{FindPivots}\((B,S)\) returns \((P,W)\):
+  \begin{enumerate}[leftmargin=1.4em]
+    \item Size bound: \(|W|\le \min\{k\,|S|,\,|\tilde U|\}\).
+    \item Reduction: \(|P|\le |W|/k\).
+    \item Coverage: For every \(x\in\tilde U\), either \(x\in W\) (now complete) or the shortest path to \(x\) visits some pivot in \(P\).
+  \end{enumerate}
+  Cost: \(\Oh\big(\min\{k^2|S|,\,k\,|\tilde U|\}\big)\).
+\end{frame}
+
+\begin{frame}{BMSSP (Main Procedure) and Recursion}
+  \begin{itemize}[leftmargin=1.2em]
+    \item Levels: \(\ell\in[0,\lceil(\log n)/t\rceil]\). Each level holds a frontier \(S\) and a bound \(B\).
+    \item Pipeline per level (paraphrased from Algorithm~3):
+    \begin{enumerate}
+      \item Run \textsc{FindPivots} to get \((P,W)\).
+      \item Insert pivots \(P\) into a partial-order structure \(\mathcal D\) (supports Insert, Pull, BatchPrepend).
+      \item Recurse on batches pulled from \(\mathcal D\); relax edges from returned \(U_i\); batch-prepend certain updates back into \(\mathcal D\).
+    \end{enumerate}
+    \item Base case (\(\ell=0\)): run a mini-Dijkstra on a small batch.
+    \item Each level reduces problem size by roughly a factor of \(2^t\), yielding depth \(\Oh((\log n)/t)\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Assumptions and Notation (for Board)}
+  \small
+  \begin{itemize}[leftmargin=1.2em]
+    \item Unique shortest-path lengths (paper's Assumption 2.1) to avoid ties; can be enforced by a lexicographic tie-break with stored metadata.
+    \item Constant-degree graphs via standard degree-reduction; preserves distances; \(n',m'=\Oh(m)\).
+    \item \(T(u)\): subtree of the shortest-path tree rooted at \(u\). For a set \(S\), \(T(S)=\bigcup_{u\in S}T(u)\).
+    \item For bound \(B\): \(T_{<B}(S)=\{v\in T(S): \dist(v)<B\}\). This coincides with \(\tilde U\) used in FindPivots.
+    \item For a vertex set \(U\) and interval \([c,d)\): \(N^{+}[c,d)(U)=\{(u,v): u\in U,\ \dist(u)+w_{uv}\in[c,d)\}\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Where Does Overhead Come From? Exact Terms}
+  The paper provides an explicit per-level time bound (Lemma 3.12).
+  With a constant \(C\) covering hidden constants from FindPivots, data structure, relaxations, etc., the time for a BMSSP call on level \(\ell\) is
+  \begin{equation*}
+    C\,\underbrace{(k+2t/k)\,(\ell+1)\,|U|}_{\text{pivot+control overhead}}\; +\; C\,\underbrace{(t+\ell\,\log k)\,\big\lvert N[\min_{x\in S}\dist(x),\,B)^{+}(U)\big\rvert}_{\text{edge-processing via }\mathcal D}.
+  \end{equation*}
+  Notes:
+  \begin{itemize}[leftmargin=1.2em]
+    \item \(|U|\) is the number of completed vertices at that call; \(N[\cdot)^{+}(U)\) denotes outgoing edges from \(U\) with distances entering the interval.
+    \item Over all depths, FindPivots contributes \(\Oh(n\,k\cdot (\log n)/t)=\Oh(n\,\log^{2/3} n)\).
+    \item Data-structure operations contribute \(\Oh\big(m\,(\log k + t)\big)=\Oh\big(m\,t\big)=\Oh\big(m\,\log^{2/3} n\big)\) plus lower-order terms like \(\Oh(n\,\log^{1/3} n\,\log\log n)\).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why \(\log^{2/3} n\)? Parameter Balancing}
+  \small
+  Dominant terms (over all depths) are of the form
+  \[
+    \Oh\big(n\,k\cdot (\log n)/t\big) \; +\; \Oh\big(m\,(\log k + t)\big)\,.
+  \]
+  For sparse graphs (\(m=\Theta(n)\)), minimize w.r.t. \(k,t\) under \(k=\log^{\alpha}n,\ t=\log^{\beta}n,\ \alpha+\beta=1\):
+  \begin{align*}
+    n\,k\,\tfrac{\log n}{t} &\sim n\,\log^{\alpha}n\,\log^{1-\beta}n = n\,\log^{1+\alpha-\beta}n,\\
+    m\,(\log k + t) &\sim n\,(\alpha\log\log n + \log^{\beta}n) \approx n\,\log^{\beta}n \quad (\text{as }\log^{\beta}n\gg\log\log n).
+  \end{align*}
+  Balance exponents: set \(1+\alpha-\beta = \beta\Rightarrow \alpha+1=2\beta\). With constraint \(\alpha+\beta=1\), solve \(\beta=2/3,\ \alpha=1/3\). Hence
+  \[
+    k=\Theta\!\big(\log^{1/3}n\big),\quad t=\Theta\!\big(\log^{2/3}n\big),\quad T=\Oh\big(m\,\log^{2/3}n\big).
+  \]
+\end{frame}
+
+\begin{frame}{Total Running Time (Summed Over Depths)}
+  Choosing \(k=\lfloor\log^{1/3} n\rfloor\), \(t=\lfloor\log^{2/3} n\rfloor\), and depth \(\ell\approx (\log n)/t=\Oh(\log^{1/3} n)\), the paper shows:
+  \begin{align*}
+    T(n,m)
+    &\;=\; \Oh\big(n\,\log^{2/3} n\big) \quad \text{(FindPivots over all depths)}\\
+    &\phantom{=}\; +\; \Oh\big(m\,\log^{2/3} n\big) \quad \text{(Insert/BatchPrepend/relaxation via }\mathcal D\text{)}\\[0.25em]
+    &\;=\; \Oh\big(m\,\log^{2/3} n\big) \quad \text{since } m\ge n-1\text{ in connected graphs.}
+  \end{align*}
+  \vspace{0.4em}
+  Interpretation of \textbf{overhead}:
+  \begin{itemize}[leftmargin=1.2em]
+    \item The "extra" work beyond a plain relaxation pass (\(\Oh(m)\)) arises from pivot-finding and partial-order maintenance, captured by coefficients of \(t\), \(k\), and \(\ell\) above.
+    \item Constants are explicit but aggregated into \(C\) in Lemma~3.12; for small \(n\) these constants can dominate, explaining slower performance compared to Dijkstra at toy sizes.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Asymptotic Advantage vs Dijkstra (Sparse Graphs)}
+  For sparse graphs (after constant-degree reduction), \(m=\Theta(n)\). Compare
+  \[
+    \textbf{Dijkstra: } \Oh(m+n\log n)=\Theta(n\log n)
+    \qquad \text{vs}\qquad
+    \textbf{This work: } \Oh\big(n\,\log^{2/3} n\big).
+  \]
+  Ratio (ignoring constants):
+  \[
+    R(n)=\frac{n\,\log^{2/3} n}{n\,\log n}=\frac{1}{\log^{1/3} n}\quad \to 0 \text{ as } n\to\infty.
+  \]
+  \begin{itemize}[leftmargin=1.2em]
+    \item No exact numeric threshold \(n_0\) is given in the paper; break-even depends on hidden constants in Lemma~3.12 and implementation.
+    \item Pedagogically: the asymptotic speedup is real; at small \(n\), constants/overheads make Dijkstra preferable.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Pivot Conditions and Counts (Why Reduction Works)}
+  After \(k\) Bellman–Ford style rounds from frontier \(S\) under bound \(B\):
+  \begin{itemize}[leftmargin=1.2em]
+    \item Any vertex within \(k\) hops of \(S\) and with distance \(<B\) becomes complete and belongs to \(W\).
+    \item Any remaining vertex in \(\tilde U\setminus W\) lies in a shortest-path tree of size \(\ge k\) rooted at some \(y\in S\). Those roots form the pivot set \(P\).
+    \item Disjointness of trees implies \(|P|\le |W|/k\), so only a \(1/k=1/\log^{1/3} n\) fraction of the frontier needs expensive processing.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Data Structure \(\mathcal D\): Partial Order Instead of Full Sorting}
+  \begin{itemize}[leftmargin=1.2em]
+    \item Supports Insert, Pull (extract up to \(M\) smallest), and BatchPrepend with amortized bounds depending on \(M\) and current size.
+    \item Cost summaries used in analysis (Lemma 3.3 and remarks):
+      \begin{itemize}
+        \item Insert: \(\Oh\big(\max\{1,\log(N/M)\}\big)\) amortized.
+        \item BatchPrepend: \(\Oh\big(L\,\max\{1,\log(L/M)\}\big)\) for batch size \(L\).
+        \item Pull: \(\Oh(M)\).
+      \end{itemize}
+    \item Effect: avoid maintaining a \emph{total} order over all frontier vertices, realize savings of a factor \(\log^{1-2/3} n=\log^{1/3} n\) asymptotically.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked Numbers (for Class Demonstration)}
+  \textbf{Small pedagogical instance} (sparse): \(n=15\), say \(m\approx25\). Parameters: \(k=\lfloor\log^{1/3} 15\rfloor=2\), \(t=\lfloor\log^{2/3} 15\rfloor=6\), depth \(\approx 2\).
+  \begin{itemize}[leftmargin=1.2em]
+    \item FindPivots does \(k=2\) rounds; many vertices settled into \(W\); remaining roots become pivots \(P\) with \(|P|\le |W|/2\).
+    \item Operation counts are modest, but constants dominate; Dijkstra often faster here. This is expected and \emph{does not} contradict the paper.
+  \end{itemize}
+  \vspace{0.5em}
+  \textbf{Asymptotic illustration} (ignore constants): For \(n=10^6\),
+  \(
+    \log_2 n\approx 20,\; \log^{2/3}n\approx 20^{2/3}\approx 7.4,
+  \)
+  so the ratio vs Dijkstra on sparse graphs is roughly \(R\approx 7.4/20\approx 0.37\). Actual break-even depends on constants \(C\).
+\end{frame}
+
+\begin{frame}{Hands-on Example: 15 Nodes (Board Script)}
+  \small
+  Parameters: \(n=15\), choose \(k=2\), \(t=6\), depth \(\approx 2\).
+  \begin{enumerate}[leftmargin=1.2em]
+    \item Draw a sparse DAG-like layout with \(m\approx 25\) edges.
+    \item Round 1 (FindPivots): relax outgoing edges from source/frontier; mark discovered vertices \(W_1\).
+    \item Round 2: relax from newly completed vertices; mark \(W_2\); stop rounds (\(k=2\)).
+    \item Build forest on \(W=W_1\cup W_2\); compute tree sizes from each \(y\in S\); pivots are roots with size \(\ge 2\).
+    \item Note \(|P|\le |W|/2\). Base case handles small batches (mini-Dijkstra).
+  \end{enumerate}
+  	extbf{Compare counts} on board: Dijkstra ~ \(m+n\log n\) ops vs overhead terms present here; emphasize that at this size constants dominate.
+\end{frame}
+
+\begin{frame}{Anticipated Cross-Questions (Expanded)}
+  \small
+  \begin{enumerate}[leftmargin=1.2em]
+    \item \textbf{Exact threshold?} Not specified in the paper; depends on constant \(C\) and implementation. Asymptotically better by a factor \(\log^{1/3}n\) on sparse graphs.
+    \item \textbf{What if we require full ordering of vertices?} Then Dijkstra is optimal (Haeupler et al. 2024), outside this result's scope.
+    \item \textbf{Dense graphs?} With \(m=\Theta(n^2)\), advantage disappears; both are essentially quadratic in practice.
+    \item \textbf{Negative weights?} Paper’s result is for nonnegative weights in comparison–addition model.
+    \item \textbf{Are tie-breaking and uniqueness necessary?} Used to simplify correctness; implementable via lexicographic order with stored metadata in \(\Oh(1)\) comparison time.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Chalkboard Checklist (What to Derive Live)}
+  \small
+  \begin{itemize}[leftmargin=1.2em]
+    \item Define \(k,t,\ell\) and state their chosen values.
+    \item Prove \(|P|\le |W|/k\) using disjoint tree argument.
+    \item State Lemma 3.12 per-level bound and explain each symbol (\(|U|\), \(N^{+}[\cdot)\)).
+    \item Sum costs across depths to \(\Oh(m\,\log^{2/3}n)\); show balancing that yields exponents \(1/3,2/3\).
+    \item Contrast against \(\Oh(m+n\log n)\); discuss when constants may dominate.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{When Is It Beneficial? (What the Paper Does and Does Not Claim)}
+  \begin{itemize}[leftmargin=1.2em]
+    \item The paper proves \(\Oh(m\,\log^{2/3} n)\) in the comparison–addition model and shows deterministically breaking \(\Oh(m+n\log n)\) on sparse directed graphs.
+    \item It \textbf{does not} provide a fixed numeric threshold \(n_0\) or an empirical cross-over; those depend on constant \(C\) (implementation, hardware) and sparsity profile.
+    \item Assumption of constant degree (via reduction) underlies the bounds; for dense graphs \(m=\Theta(n^2)\) the asymptotic advantage disappears.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Common Cross-Questions (Prepared Answers)}
+  \begin{enumerate}[leftmargin=1.2em]
+    \item \textbf{Q: What exactly makes it faster than Dijkstra?}\\
+      \textbf{A:} Only a \(1/\log^{1/3} n\) fraction of frontier vertices (pivots) require expensive ordering; the rest are settled via \(k\) batched relaxations.
+    \item \textbf{Q: Does it output the vertex order?}\\
+      \textbf{A:} No; if you require the full order by distance, Dijkstra is optimal (Haeupler et al. 2024).
+    \item \textbf{Q: What about negative weights?}\\
+      \textbf{A:} This result is for nonnegative weights in the comparison–addition model.
+    \item \textbf{Q: How critical is sparsity?}\\
+      \textbf{A:} Analysis assumes constant degree after reduction. For dense graphs, savings over Dijkstra vanish.
+    \item \textbf{Q: Can constants kill the speedup?}\\
+      \textbf{A:} At small/moderate \(n\), yes—the constant \(C\) in Lemma~3.12 aggregates nontrivial overheads (pivot search, partial-order maintenance).
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{Summary of Exact Math You May Need on Board}
+  \small
+  Parameters and depth: \(k=\lfloor\log^{1/3} n\rfloor\), \(t=\lfloor\log^{2/3} n\rfloor\), depth \(\ell=\Oh((\log n)/t)=\Oh(\log^{1/3} n)\).
+  \begin{align*}
+    |W| &\le \min\{k|S|,\,|\tilde U|\}, & |P| &\le |W|/k.\\
+    T_{\text{FindPivots, depth}} &= \Oh(nk) \Rightarrow \Oh\big(n\,\log^{2/3} n\big) \text{ total}.\\
+    T_{\mathcal D} &= \Oh\big(m(\log k + t)\big) = \Oh\big(m\,\log^{2/3} n\big).\\
+    T(n,m) &= \Oh\big(m\,\log^{2/3} n\big).\\
+    \text{Dijkstra} &: \Oh(m+n\log n).\quad\text{(Comparison only; different model yields other bounds.)}
+  \end{align*}
+\end{frame}
+
+\begin{frame}[allowframebreaks]{References}
+  \small
+  Duan, Mao, Shu, Yin (2025). Breaking the Sorting Barrier for Directed Single-Source Shortest Paths. \emph{arXiv:2504.17033}.\\
+  Haeupler, Hladík, Rozhoň, Tarjan, Tětek (2024). Universal optimality of Dijkstra via beyond-worst-case heaps. \emph{FOCS 2024}.\\
+  Classical references on Dijkstra and Fibonacci heaps; constant-degree reductions; partial-order structures as in the paper's Lemma~3.3.
+\end{frame}
+
+\end{document}

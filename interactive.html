@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Demo | PathOpt Engine</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- MathJax for proper math rendering -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$']],
+        displayMath: [['$$', '$$']]
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  
+  <style>
+    /* Interactive Demo Styles */
+    .demo-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .demo-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+    
+    .demo-main {
+      min-width: 0;
+    }
+    
+    .demo-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    
+    /* Example Selector */
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .example-card {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1));
+      border: 2px solid rgba(139, 92, 246, 0.3);
+      border-radius: 12px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+    
+    .example-card:hover {
+      border-color: var(--color-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+    }
+    
+    .example-card.active {
+      border-color: var(--color-cyan);
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+    }
+    
+    .example-card h3 {
+      color: var(--color-cyan);
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+    }
+    
+    .example-card p {
+      color: var(--color-secondary);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    
+    /* Graph Canvas */
+    .graph-canvas-container {
+      background: rgba(10, 1, 24, 0.6);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      margin-bottom: 1.5rem;
+    }
+    
+    #graph-canvas {
+      width: 100%;
+      height: 500px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.4);
+    }
+    
+    .node-legend {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+    }
+    
+    /* Controls */
+    .controls-panel {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1));
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    
+    .controls-panel h3 {
+      margin: 0 0 1rem 0;
+      color: var(--color-cyan);
+    }
+    
+    .control-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    .control-btn {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+      border: 1px solid rgba(139, 92, 246, 0.5);
+      color: var(--color-text);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .control-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(6, 182, 212, 0.3));
+      border-color: var(--color-cyan);
+      transform: translateY(-1px);
+    }
+    
+    .control-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .control-btn.primary {
+      background: linear-gradient(135deg, var(--color-purple), var(--color-cyan));
+      border-color: var(--color-cyan);
+    }
+    
+    /* Speed Control */
+    .speed-control {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    .speed-control label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--color-secondary);
+      font-size: 0.9rem;
+    }
+    
+    .speed-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(139, 92, 246, 0.3);
+      outline: none;
+    }
+    
+    .speed-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-cyan);
+      cursor: pointer;
+    }
+    
+    /* State Display */
+    .state-display {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    
+    .state-display h3 {
+      margin: 0 0 1rem 0;
+      color: var(--color-cyan);
+    }
+    
+    .state-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    
+    .state-item {
+      background: rgba(139, 92, 246, 0.1);
+      padding: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    
+    .state-label {
+      font-size: 0.85rem;
+      color: var(--color-secondary);
+      margin-bottom: 0.25rem;
+    }
+    
+    .state-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--color-cyan);
+      font-family: 'Fira Code', monospace;
+    }
+    
+    /* Metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .metric-card {
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1));
+      border-radius: 12px;
+      padding: 1.25rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      text-align: center;
+    }
+    
+    .metric-value {
+      font-size: 2rem;
+      font-weight: bold;
+      background: linear-gradient(135deg, var(--color-purple), var(--color-cyan));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-family: 'Fira Code', monospace;
+    }
+    
+    .metric-label {
+      font-size: 0.9rem;
+      color: var(--color-secondary);
+      margin-top: 0.5rem;
+    }
+    
+    /* Calculation Log */
+    .calculation-log {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .calculation-log h3 {
+      margin: 0 0 1rem 0;
+      color: var(--color-cyan);
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.95);
+      padding-bottom: 0.5rem;
+    }
+    
+    .log-entry {
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.5rem;
+      border-left: 3px solid rgba(139, 92, 246, 0.5);
+      background: rgba(139, 92, 246, 0.05);
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: var(--color-secondary);
+    }
+    
+    .log-entry.highlight {
+      border-left-color: var(--color-cyan);
+      background: rgba(6, 182, 212, 0.1);
+      color: var(--color-text);
+      font-weight: 500;
+    }
+    
+    .log-entry .step-num {
+      color: var(--color-purple);
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+    
+    /* Distance Table */
+    .distance-table {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .distance-table h3 {
+      margin: 0 0 1rem 0;
+      color: var(--color-cyan);
+    }
+    
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .demo-layout {
+        grid-template-columns: 1fr;
+      }
+      
+      .demo-sidebar {
+        order: -1;
+      }
+      
+      .example-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 640px) {
+      .demo-container {
+        padding: 1rem;
+      }
+      
+      .example-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .control-buttons {
+        grid-template-columns: 1fr;
+      }
+      
+      .state-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body data-page="interactive">
+  <nav>
+    <div class="nav-inner">
+      <div class="site-title">PathOpt Engine</div>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="theory.html">Theory</a></li>
+        <li><a class="active" href="interactive.html">Interactive Demo</a></li>
+        <li><a href="about.html">Applications</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <div class="demo-container">
+      <header class="article-header">
+        <h1>Interactive Algorithm Demo</h1>
+        <p class="lead">Step through the frontier reduction algorithm and watch how pivot identification reduces sorting overhead</p>
+      </header>
+
+      <!-- Example Selector -->
+      <section class="card">
+        <h2>Choose a Graph Example</h2>
+        <div class="example-grid">
+          <div class="example-card active" data-example="small">
+            <h3>Small Graph</h3>
+            <p>n=8, m=13, k=2<br>Perfect for learning</p>
+          </div>
+          <div class="example-card" data-example="medium">
+            <h3>Medium Graph</h3>
+            <p>n=16, m=23, k=2<br>More complex paths</p>
+          </div>
+          <div class="example-card" data-example="sparse">
+            <h3>Sparse Network</h3>
+            <p>n=12, m=18, k=2<br>Low degree graph</p>
+          </div>
+          <div class="example-card" data-example="custom" style="opacity: 0.6;">
+            <h3>Custom Graph</h3>
+            <p>Coming soon...<br>Build your own</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Demo Layout -->
+      <div class="demo-layout">
+        <!-- Left: Graph Visualization -->
+        <div class="demo-main">
+          <!-- Graph Canvas -->
+          <div class="graph-canvas-container">
+            <canvas id="graph-canvas"></canvas>
+            <div class="node-legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #f59e0b; border-color: #f59e0b;"></div>
+                <span>Source</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #8b5cf6; border-color: #8b5cf6;"></div>
+                <span>Frontier</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #06b6d4; border-color: #06b6d4;"></div>
+                <span>Pivot</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #10b981; border-color: #10b981;"></div>
+                <span>Settled</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3);"></div>
+                <span>Unvisited</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metrics Dashboard -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value" id="metric-relaxations">0</div>
+              <div class="metric-label">Edge Relaxations</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="metric-comparisons">0</div>
+              <div class="metric-label">Comparisons</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="metric-pivots">0</div>
+              <div class="metric-label">Pivots Found</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value" id="metric-settled">0</div>
+              <div class="metric-label">Vertices Settled</div>
+            </div>
+          </div>
+
+          <!-- Calculation Log -->
+          <div class="calculation-log" id="calculation-log">
+            <h3>Execution Log</h3>
+            <div class="log-entry">Select an example and click "Initialize" to begin</div>
+          </div>
+        </div>
+
+        <!-- Right: Controls and State -->
+        <div class="demo-sidebar">
+          <!-- Controls -->
+          <div class="controls-panel">
+            <h3>Controls</h3>
+            <div class="control-buttons">
+              <button class="control-btn primary" id="btn-init">Initialize</button>
+              <button class="control-btn" id="btn-reset">Reset</button>
+              <button class="control-btn" id="btn-step" disabled>Step Forward</button>
+              <button class="control-btn" id="btn-run" disabled>Auto Run</button>
+            </div>
+            
+            <div class="speed-control">
+              <label>
+                Animation Speed: <span id="speed-value">5</span>×
+              </label>
+              <input type="range" class="speed-slider" id="speed-slider" min="1" max="10" value="5">
+            </div>
+          </div>
+
+          <!-- State Display -->
+          <div class="state-display">
+            <h3>Algorithm State</h3>
+            <div class="state-grid">
+              <div class="state-item">
+                <div class="state-label">Phase</div>
+                <div class="state-value" id="state-phase">—</div>
+              </div>
+              <div class="state-item">
+                <div class="state-label">Round</div>
+                <div class="state-value" id="state-round">—</div>
+              </div>
+              <div class="state-item">
+                <div class="state-label">Frontier |S|</div>
+                <div class="state-value" id="state-frontier">0</div>
+              </div>
+              <div class="state-item">
+                <div class="state-label">Settled |W|</div>
+                <div class="state-value" id="state-settled">0</div>
+              </div>
+              <div class="state-item">
+                <div class="state-label">Parameter k</div>
+                <div class="state-value" id="state-k">—</div>
+              </div>
+              <div class="state-item">
+                <div class="state-label">Parameter t</div>
+                <div class="state-value" id="state-t">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Distance Table -->
+          <div class="distance-table">
+            <h3>Distance Table</h3>
+            <div id="distance-table">
+              <p style="color: var(--color-secondary); font-size: 0.9rem;">Initialize to see distances</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Algorithm Explanation -->
+      <section class="card">
+        <h2>How the Algorithm Works</h2>
+        <p><strong>PathOpt uses frontier reduction to minimize sorting operations:</strong></p>
+        
+        <ol style="line-height: 1.8;">
+          <li><strong>FindPivots Phase:</strong> Run $k = \lfloor \log^{1/3} n \rfloor$ rounds of edge relaxations (like Bellman-Ford) to identify "pivot" vertices that root large shortest-path trees.</li>
+          <li><strong>Pivot Identification:</strong> Build a shortest-path forest and select pivots where tree size $\geq k$. Only pivots need expensive priority queue operations.</li>
+          <li><strong>Reduction:</strong> Instead of sorting all frontier vertices, we reduce the frontier from $|S|$ vertices to $|P| \leq |S|/k$ pivots.</li>
+          <li><strong>Recursion:</strong> Process pivots recursively with bounded work per level, achieving $O(m \log^{2/3} n)$ total complexity.</li>
+        </ol>
+
+        <p style="margin-top: 1.5rem;"><strong>Key Insight:</strong> For sparse graphs ($m = O(n)$), this is <em>faster than Dijkstra's $O(m + n \log n)$</em> because we avoid sorting most vertices!</p>
+      </section>
+
+      <!-- Performance Notes -->
+      <section class="card">
+        <h2>When Does This Algorithm Excel?</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+          <div>
+            <h3 style="color: var(--color-cyan);">✅ Works Best With:</h3>
+            <ul style="line-height: 1.8;">
+              <li><strong>Large graphs:</strong> $n > 10{,}000$ vertices</li>
+              <li><strong>Sparse graphs:</strong> $m = O(n)$ or $m = O(n \log n)$</li>
+              <li><strong>Directed graphs:</strong> Asymmetric edge costs</li>
+              <li><strong>Definition of "sparse":</strong> Average degree $d = \frac{2m}{n} < 10$ is ideal. Even $d = 20$ can benefit!</li>
+            </ul>
+          </div>
+          
+          <div>
+            <h3 style="color: #f59e0b;">⚠️ Not Ideal For:</h3>
+            <ul style="line-height: 1.8;">
+              <li><strong>Small graphs:</strong> $n < 5{,}000$ (constant factors dominate)</li>
+              <li><strong>Dense graphs:</strong> $m = \Theta(n^2)$ (no sorting reduction possible)</li>
+              <li><strong>Very dense:</strong> If $m > n \log n$, this becomes <em>equal to or worse than Dijkstra</em></li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1)); border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.3);">
+          <h3 style="color: var(--color-cyan); margin-top: 0;">Understanding "Sparse"</h3>
+          <p><strong>Sparse</strong> means the number of edges $m$ grows slowly with vertices $n$:</p>
+          <ul style="margin: 1rem 0;">
+            <li><strong>Super sparse:</strong> $m = O(n)$ — each vertex has constant average degree (road networks, social graphs)</li>
+            <li><strong>Moderately sparse:</strong> $m = O(n \log n)$ — still benefits from PathOpt</li>
+            <li><strong>Dense threshold:</strong> When $m \geq n \log^{2/3} n$, the sorting reduction advantage disappears</li>
+          </ul>
+          <p><strong>Example:</strong> A road network with $n=100{,}000$ intersections and $m=300{,}000$ roads (average degree 6) is <em>highly sparse</em> and perfect for this algorithm!</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 PathOpt Engine. Advanced shortest path algorithms for modern infrastructure.</p>
+  </footer>
+
+  <script src="interactive_logic.js"></script>
+</body>
+</html>
